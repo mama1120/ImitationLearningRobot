@@ -25,11 +25,32 @@ Run the container with
 
 Check whether you can open a window from the container by running
 ```bash
-python view_noise_image.py
+python stack_cubes.py
 ```
-A window should pop up showing a random noise image. You can close it by pressing any key, while the window is focused.
 
-### Basics
-Check out the `basics.py` script to get familiar with the API we use and the `Affine` class.
+To test the tensorflow functionality:
+Check whether you can open a window from the container by running
+```bash
+python test_model.py
+```
 
-If you want to understand a bit more how everything works under the hood, check out the scripts in the `bullet_env` folder as well as the `transform.py` file.
+To create a new dataset, run:
+```bash
+python auto_create_dataset_full.py
+```
+Combine the future state in the last state file:
+```bash
+python cmobine_json.py
+```
+Train the model:
+```bash
+python Cubes_Pose_gripper_train.py
+```
+Test the model output by giving an example input:
+```bash
+python test_model.py
+```
+Test the model in the enviromment:
+```bash
+python env_test_model.py
+```
