@@ -76,7 +76,7 @@ class BulletRobot:
 
     def step(self,
              gain=0.033,
-             velocity=0.15,
+             velocity=0.1, #originally 0.15
              precision=0.0015) -> None:
         current_position = [self.bullet_client.getJointState(self.robot_id, i)[0] for i in self.controllable_joints]
         current_position = np.array(current_position)

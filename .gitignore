@@ -1,1 +1,5 @@
 *.pyc
+src/dataset
+src/dataset2
+src/demos
+OtherModels
