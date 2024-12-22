@@ -78,17 +78,15 @@ class BulletEnvironment:
         print(f"Demonstration saved to {filepath}")
 
 # Define the stack_cubes function to stack cubes and save the demonstrations
-def stack_cubes(bullet_client, robot, gripper, urdf_template, cube_positions, cube_sizes, cube_colors, env, dataset):
+def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_sizes, cube_colors, env, dataset):
     """Stacks cubes and saves the demonstration with action labels."""
     temp_dir = "temp_urdf"
     os.makedirs(temp_dir, exist_ok=True)
 
     # Create cubes in random positions
+    # Load cubes from existing URDF files
     cube_ids = []
-    for i, (position, size, color) in enumerate(zip(cube_positions, cube_sizes, cube_colors)):
-        urdf_path = os.path.join(temp_dir, f"cube_{i}.urdf")
-        with open(urdf_path, "w") as f:
-            f.write(urdf_template.format(size=size, mass=size * 3, color=color))
+    for i, (position, size, urdf_path) in enumerate(zip(cube_positions, cube_sizes, urdf_path)):
         cube_id = bullet_client.loadURDF(urdf_path, position, flags=p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES)
         cube_ids.append(cube_id)
         env.add_object(cube_id, f"cube_{i}", size)  # Save cube size here
@@ -179,38 +177,6 @@ def stack_cubes(bullet_client, robot, gripper, urdf_template, cube_positions, cu
 
 def main():
     RENDER = True
-    URDF_TEMPLATE = """<?xml version="1.0" ?>
-    <robot name="cube">
-        <material name="color">
-            <color rgba="{color}"/>
-        </material>
-        <link name="baseLink">
-            <contact>
-                <lateral_friction value="3"/>
-                <rolling_friction value="0.001"/>
-                <inertia_scaling value="0.8"/>
-            </contact>
-            <inertial>
-                <origin rpy="0 0 0" xyz="0 0 0"/>
-                <mass value="{mass}"/>
-                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
-            </inertial>
-            <visual>
-                <origin rpy="0 0 0" xyz="0 0 0"/>
-                <geometry>
-                    <box size="{size} {size} {size}"/>
-                </geometry>
-                <material name="color"/>
-            </visual>
-            <collision>
-                <origin rpy="0 0 0" xyz="0 0 0"/>
-                <geometry>
-                    <box size="{size} {size} {size}"/>
-                </geometry>
-            </collision>
-        </link>
-    </robot>
-    """
 # Create a BulletClient and configure the visualizer
     bullet_client = BulletClient(connection_mode=p.GUI)
     bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
@@ -235,8 +201,9 @@ def main():
         cube_positions = [[np.random.uniform(0.4, 0.9), np.random.uniform(-0.3, 0.3), 0.05] for _ in range(5)]
         cube_sizes = [0.08 - i * 0.01 for i in range(5)]
         cube_colors = ["1 0 0 1", "0 1 0 1", "0 0 1 1", "1 1 0 1", "1 0 1 1"]
+        CUBE_URDF_PATHS = [f"/home/jovyan/workspace/assets/urdf/cube{i}.urdf" for i in range(5)]
 
-        success = stack_cubes(bullet_client, robot, gripper, URDF_TEMPLATE, cube_positions, cube_sizes, cube_colors, env, dataset)
+        success = stack_cubes(bullet_client, robot, gripper, CUBE_URDF_PATHS, cube_positions, cube_sizes, cube_colors, env, dataset)
         #Wait 5 seconds before starting a new scene, only for debugging
         #time.sleep(5)
         if success:
