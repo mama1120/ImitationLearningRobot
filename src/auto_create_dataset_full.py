@@ -80,8 +80,6 @@ class BulletEnvironment:
 # Define the stack_cubes function to stack cubes and save the demonstrations
 def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_sizes, cube_colors, env, dataset):
     """Stacks cubes and saves the demonstration with action labels."""
-    temp_dir = "temp_urdf"
-    os.makedirs(temp_dir, exist_ok=True)
 
     # Create cubes in random positions
     # Load cubes from existing URDF files
@@ -155,12 +153,6 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
         env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_6home.json", ACTIONS["return_home"],i)
         home_pose = robot.get_eef_pose()
         robot.ptp(home_pose)
-  
-
-    # Clean up temporary URDF files
-    for filename in os.listdir(temp_dir):
-        os.remove(os.path.join(temp_dir, filename))
-    os.rmdir(temp_dir)
 
     # Check if the last cube is at the expected height
     last_cube_id = cube_ids[-1]
