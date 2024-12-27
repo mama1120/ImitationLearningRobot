@@ -11,15 +11,14 @@ import json
 ACTIONS = {
     "move_to_pre_grasp": 0,
     "move_to_grasp": 1,
-    "grasp_cube": 2,
-    "lift_cube": 3,
-    "move_to_stack_position": 4,
-    "stack_cube": 5,
-    "return_home": 6
+    "lift_cube": 2,
+    "move_to_stack_position": 3,
+    "stack_cube": 4,
+    "return_home": 5
 }
 
 #Folder to save the demonstrations
-demo_folder = "new_demos"
+demo_folder = "new_demos2"
 
 # Define the BulletEnvironment class to get the current state of the environment and save it
 class BulletEnvironment:
@@ -85,6 +84,8 @@ def stack_cubes(
     bullet_client, robot, gripper, urdf_paths, cube_positions, cube_sizes, cube_colors, env, dataset
 ):
     """Stacks cubes with data augmentation and saves the demonstration with action labels."""
+    # Define the home pose for the robot, as the current pose, when the simulation starts
+    home_pose = robot.get_eef_pose()
 
     # Load cubes with augmented positions (sizes remain unchanged)
     cube_ids = []
@@ -107,7 +108,7 @@ def stack_cubes(
             continue
 
         # Save pre-grasp action
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"], i)
 
         # Pre-grasp position with noise
         gripper_rotation = Affine(rotation=[0, np.pi, 0])
@@ -123,19 +124,18 @@ def stack_cubes(
         env.set_gripper_state(True)
 
         # Move to grasp position
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"], i)
         grasp_pose = target_pose
         current_translation = grasp_pose.translation
-        current_translation[0] += generate_action_noise(std_dev=0.005)[0]  # Add noise to pre-grasp position
-        current_translation[1] += generate_action_noise(std_dev=0.005)[1]  # Add noise to pre-grasp position
+        current_translation[0] += generate_action_noise(std_dev=0.003)[0]  # Add noise to pre-grasp position
+        current_translation[1] += generate_action_noise(std_dev=0.003)[1]  # Add noise to pre-grasp position
         grasp_pose = Affine(translation=current_translation, rotation=grasp_pose.rotation)
         robot.lin(grasp_pose)
-
         gripper.close()
         env.set_gripper_state(False)
 
         # Lift the cube with noise
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_3lift.json", ACTIONS["lift_cube"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_2lift.json", ACTIONS["lift_cube"], i)
         lift_pose = target_pose * Affine(translation=[0, 0, -0.2])
         current_translation = lift_pose.translation
         current_translation += generate_action_noise(std_dev=0.01)  # Add noise to pre-grasp position
@@ -145,11 +145,14 @@ def stack_cubes(
         # Move to stacking position dynamically
         current_cube_positions = env.get_cube_positions()
         stack_position = list(current_cube_positions['cube_0']['position'])
+        #In case the cube falls off the table
+        if(stack_position[2] < 0):
+            break   
         print("Stack position:", stack_position)
         stack_position[2] += 0.05 + cube_sizes[0] / 2
         stack_position[2] += sum(cube_sizes[1:i])  # Adjust for the cubes stacked already
 
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_4move_to_stack.json", ACTIONS["move_to_stack_position"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_3move_to_stack.json", ACTIONS["move_to_stack_position"], i)
         stack_target = Affine(translation=stack_position, rotation=[0, np.pi, 0])
         current_translation = stack_target.translation
         current_translation += generate_action_noise(std_dev=0.007)  # Add noise to pre-grasp position
@@ -158,18 +161,17 @@ def stack_cubes(
         robot.lin(above_stack)
 
         # Descend and stack cube
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5stack.json", ACTIONS["stack_cube"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_4stack.json", ACTIONS["stack_cube"], i)
         current_translation = stack_target.translation
-        current_translation[0] += generate_action_noise(std_dev=0.004)[0]  # Add noise to pre-grasp position
-        current_translation[1] += generate_action_noise(std_dev=0.004)[1]  # Add noise to pre-grasp position
+        current_translation[0] += generate_action_noise(std_dev=0.003)[0]  # Add noise to pre-grasp position
+        current_translation[1] += generate_action_noise(std_dev=0.003)[1]  # Add noise to pre-grasp position
         stack_target = Affine(translation=current_translation, rotation=stack_target.rotation)
         robot.lin(stack_target)
         gripper.open()
         env.set_gripper_state(True)
 
         # Return to home
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_6home.json", ACTIONS["return_home"], i)
-        home_pose = robot.get_eef_pose()
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_5home.json", ACTIONS["return_home"], i)
         current_translation = home_pose.translation
         current_translation += generate_action_noise(std_dev=0.01)  # Add noise to pre-grasp position
         home_pose = Affine(translation=current_translation, rotation=home_pose.rotation)

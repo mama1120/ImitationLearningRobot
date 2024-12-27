@@ -56,5 +56,5 @@ def update_demonstrations(demo_folder):
             json.dump(last_data, f, indent=4)
 
 if __name__ == "__main__":
-    demo_folder = "demos"  # Update this to your actual folder path
+    demo_folder = "new_demos2"  # Update this to your actual folder path
     update_demonstrations(demo_folder)

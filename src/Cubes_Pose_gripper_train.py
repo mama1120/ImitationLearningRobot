@@ -24,7 +24,11 @@ class CubeStackDataset:
         for file in files:
             filepath = os.path.join(self.data_dir, file)
             with open(filepath, 'r') as f:
-                data = json.load(f)
+                try:
+                 data = json.load(f)
+                except json.JSONDecodeError as e:
+                    print(f"Skipping file {file} due to JSON error: {e}")
+                    continue
                 if "action_label" not in data:
                     continue  # Skip files without an action label
                 self.inputs.append(self.extract_features(data))
@@ -52,7 +56,7 @@ class CubeStackDataset:
                 np.array(self.outputs_gripper))
 
 # Load dataset
-data_dir = "./demos"  # Update this path if needed
+data_dir = "./new_demos"  # Update this path if needed
 dataset = CubeStackDataset(data_dir)
 X, y_position, y_orientation, y_gripper = dataset.get_data()
 
@@ -89,7 +93,7 @@ model = Sequential([
 model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mae'])
 
 # Train the model
-model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=110, batch_size=32)
+model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=125, batch_size=32)
 
 # Save the trained model
 model.save("robot_stacking_model_with_orientation_and_gripper.keras")
