@@ -190,7 +190,7 @@ env = BulletEnvironment(bullet_client, robot)
 # Predefined cube parameters
 CUBE_POSITIONS = [[np.random.uniform(0.4, 0.9), np.random.uniform(-0.3, 0.3), 0.05] for _ in range(5)]
 CUBE_SIZES = [0.08 - i * 0.01 for i in range(5)]
-CUBE_URDF_PATHS = [f"/home/jovyan/workspace/assets/urdf/cube{i}.urdf" for i in range(5)]
+CUBE_URDF_PATHS = [f"/home/jovyan/workspace/src/cubes_urdf/cube{i}.urdf" for i in range(5)]
 
 # Load cubes from existing URDF files
 cube_ids = []
