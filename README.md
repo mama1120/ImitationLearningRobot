@@ -25,32 +25,55 @@ Run the container with
 
 Check whether you can open a window from the container by running
 ```bash
-python stack_cubes.py
+python3 stack_cubes.py
 ```
-
 To test the tensorflow functionality:
 Check whether you can open a window from the container by running
 ```bash
-python test_model.py
+python3 test_model.py
 ```
 
-To create a new dataset, run:
+To create a new dataset with random positions, run:
 ```bash
-python auto_create_dataset_full.py
+python3 auto_create_dataset.py
 ```
+
+To create a new dataset with random positions and orientations, run:
+```bash
+python3 auto_create_dataset_orientations.py
+```
+
+To create a new dataset with random positions with noise, run:
+```bash
+python3 auto_noise_create_dataset.py
+```
+
 Combine the future state in the last state file:
 ```bash
-python cmobine_json.py
+python3 combine_json.py
 ```
-Train the model:
+
+Train the model with only regression:
 ```bash
-python Cubes_Pose_gripper_train.py
+python3 train_model.py
 ```
-Test the model output by giving an example input:
+
+Train the model with regression for position and orientation and classification for gripper:
 ```bash
-python test_model.py
+python3 train_model_binary.py
 ```
+
+Train the model with regression for position and orientation and classification for gripper. Modified for testing different networks:
+```bash
+python3 train_model_binary_mod.py
+```
+
 Test the model in the enviromment:
 ```bash
-python env_test_model.py
+python3 env_test_model.py
 ```
+To train with dagger:
+```bash
+python3 model_largest_cube_DAgger.py
+```
+DAgger_env.py has many functions to use the different scripts. They include the functions to use the model, the expert definition and some enviroment.

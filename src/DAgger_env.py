@@ -6,7 +6,7 @@ from scipy.spatial.transform import Rotation as R
 
 """This is a helper file that contains the functions and classes used in the DAgger environment."""
 # Function to test the model
-def test_model2(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
+def test_model(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
     """
     Test the trained model with a given input.
 
@@ -41,7 +41,7 @@ def test_model2(model, test_input, input_scaler, output_scaler_position,output_s
     except Exception as e:
         raise ValueError(f"Error in test_model: {e}")
     
-def test_model(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
+def test_model_bin(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
 
 
     test_input_scaled = input_scaler.transform(np.array(test_input).reshape(1, -1))

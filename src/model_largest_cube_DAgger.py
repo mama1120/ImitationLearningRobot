@@ -8,7 +8,7 @@ from transform import Affine
 from tensorflow.keras.models import load_model
 import tensorflow as tf
 from joblib import load
-from DAgger_env import Expert, BulletEnvironment, test_model
+from DAgger_env import Expert, BulletEnvironment, test_model_bin
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -195,7 +195,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
                     )
                 ] + [0.08, 0.07, 0.06, 0.05, 0.04] + [i, j]
 
-                predicted_position, predicted_orientation, predicted_gripper = test_model(model, sample_input, input_scaler, output_scaler_position, output_scaler_orientation)
+                predicted_position, predicted_orientation, predicted_gripper = test_model_bin(model, sample_input, input_scaler, output_scaler_position, output_scaler_orientation)
                 predicted_position = np.squeeze(predicted_position)
                 predicted_orientation = np.squeeze(predicted_orientation)
                 pred_output = np.concatenate([predicted_position, predicted_orientation, [predicted_gripper]])
