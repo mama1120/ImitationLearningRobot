@@ -1,28 +1,12 @@
-import time
-import os
 import numpy as np
 import pybullet as p
-from pybullet_utils.bullet_client import BulletClient
-from bullet_env.bullet_robot import BulletRobot, BulletGripper
 from transform import Affine
-from tensorflow.keras.models import load_model
 import tensorflow as tf
-from joblib import load
+from scipy.spatial.transform import Rotation as R
 
-
-# Setup
-RENDER = True
-
-# Load the trained model
-model = load_model("BC.keras")
-
-# Load the saved scalers
-input_scaler = load("input_scaler.pkl")
-output_scaler_position = load("output_scaler_position.pkl")
-output_scaler_orientation = load("output_scaler_orientation.pkl")
-
+"""This is a helper file that contains the functions and classes used in the DAgger environment."""
 # Function to test the model
-def test_model(model, test_input):
+def test_model2(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
     """
     Test the trained model with a given input.
 
@@ -56,6 +40,18 @@ def test_model(model, test_input):
         return predicted_position, predicted_orientation, predicted_gripper_state
     except Exception as e:
         raise ValueError(f"Error in test_model: {e}")
+    
+def test_model(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
+
+
+    test_input_scaled = input_scaler.transform(np.array(test_input).reshape(1, -1))
+    predicted_position_orientation, predicted_gripper = model.predict(test_input_scaled)
+    
+    predicted_position = output_scaler_position.inverse_transform(predicted_position_orientation[:, :3])
+    predicted_orientation = output_scaler_orientation.inverse_transform(predicted_position_orientation[:, 3:])
+    predicted_gripper_state = int(round(predicted_gripper[0, 0]))
+
+    return predicted_position, predicted_orientation, predicted_gripper_state
 
 # Define the Bullet environment and its functions to interact with the simulation and get the current state
 class BulletEnvironment:
@@ -88,6 +84,35 @@ class BulletEnvironment:
     def get_cube_sizes(self):
         """Get the sizes of all cubes."""
         return {obj["name"]: obj["size"] for obj in self.objects.values()}
+    
+    def check_cubes_on_table(self, table_height=0.0, threshold=0.03):
+        """
+        Check which cubes are still on the table and which are not.
+
+        Args:
+            table_height: The height of the table in the simulation (default: 0.0).
+            threshold: Tolerance for determining if a cube is on the table (default: 0.01).
+
+        Returns:
+            on_table: List of object names that are still on the table.
+            off_table: List of object names that are not on the table.
+        """
+        on_table = []
+        off_table = []
+
+        for object_id, obj in self.objects.items():
+            # Get the position of the cube
+            cube_position, _ = self.bullet_client.getBasePositionAndOrientation(object_id)
+            cube_height = cube_position[2]  # Z-coordinate (height)
+
+            # Check if the cube's height is within the threshold of the table height
+            if abs(cube_height - table_height) <= threshold:
+                on_table.append(obj["name"])
+            else:
+                off_table.append(obj["name"])
+
+        return on_table, off_table
+
 
 class Expert:
     def __init__(self):
@@ -119,7 +144,7 @@ class Expert:
                 pre_grasp_offset = Affine(translation=[0, 0, -0.35])
                 pre_grasp_pose = target_pose * pre_grasp_offset
                 self.position = pre_grasp_pose.translation
-                self.orientation = pre_grasp_pose.rotation
+                self.orientation = R.from_matrix(pre_grasp_pose.rotation).as_quat()  # Convert to quaternion
                 self.gripper_state = 1
                 self.linptp = 0
 
@@ -127,22 +152,18 @@ class Expert:
                 gripper_rotation = Affine(rotation=[0, np.pi, 0])
                 target_pose = cube_pose * gripper_rotation
                 self.position = target_pose.translation
-                self.orientation = target_pose.rotation
+                self.orientation = R.from_matrix(target_pose.rotation).as_quat()  # Convert to quaternion
                 self.gripper_state = 0
                 self.linptp = 1
-
-
 
             case 2:  # Lift cube
                 gripper_rotation = Affine(rotation=[0, np.pi, 0])
                 target_pose = cube_pose * gripper_rotation
                 lift_pose = target_pose * Affine(translation=[0, 0, -0.2])
                 self.position = lift_pose.translation
-                self.orientation = lift_pose.rotation
+                self.orientation = R.from_matrix(lift_pose.rotation).as_quat()  # Convert to quaternion
                 self.gripper_state = 0
                 self.linptp = 1
-
-
 
             case 3:  # Move to stack position
                 stack_position = list(base_cube_position)
@@ -150,20 +171,18 @@ class Expert:
                 stack_target = Affine(translation=stack_position, rotation=[0, np.pi, 0])
                 above_stack = stack_target * Affine(translation=[0, 0, -0.2])
                 self.position = above_stack.translation
-                self.orientation = above_stack.rotation
+                self.orientation = R.from_matrix(above_stack.rotation).as_quat()  # Convert to quaternion
                 self.gripper_state = 0
                 self.linptp = 0
-
 
             case 4:  # Stack cube
                 stack_position = list(base_cube_position)
                 stack_position[2] += 0.05 + sample_input[-3] / 2  # Add base cube height
                 stack_target = Affine(translation=stack_position, rotation=[0, np.pi, 0])
                 self.position = stack_target.translation
-                self.orientation = stack_target.rotation
+                self.orientation = R.from_matrix(stack_target.rotation).as_quat()  # Convert to quaternion
                 self.gripper_state = 1
                 self.linptp = 1
-
 
             case 5:  # Return home
                 self.position = [0.6913298964500427, 0.1742745339870453,0.4565303921699524]
@@ -173,118 +192,4 @@ class Expert:
 
 
         return self.position, self.orientation, self.gripper_state,  self.linptp
-
-
-# Connect to the PyBullet simulator
-bullet_client = BulletClient(connection_mode=p.GUI)
-bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-if not RENDER:
-    bullet_client.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
-robot = BulletRobot(bullet_client=bullet_client, urdf_path="/home/jovyan/workspace/assets/urdf/robot.urdf")
-gripper = BulletGripper(bullet_client=bullet_client, robot_id=robot.robot_id)
-robot.home()
-
-# Set the environment
-env = BulletEnvironment(bullet_client, robot)
-
-# Predefined cube parameters
-CUBE_POSITIONS = [[np.random.uniform(0.4, 0.9), np.random.uniform(-0.3, 0.3), 0.05] for _ in range(5)]
-CUBE_SIZES = [0.08 - i * 0.01 for i in range(5)]
-CUBE_URDF_PATHS = [f"/home/jovyan/workspace/assets/urdf/cube{i}.urdf" for i in range(5)]
-
-# Load cubes from existing URDF files
-cube_ids = []
-for i, (position, size, urdf_path) in enumerate(zip(CUBE_POSITIONS, CUBE_SIZES, CUBE_URDF_PATHS)):
-    cube_id = bullet_client.loadURDF(urdf_path, position, flags=p.URDF_ENABLE_CACHED_GRAPHICS_SHAPES)
-    cube_ids.append(cube_id)
-    env.add_object(cube_id, f"cube_{i}", size)  # Save cube size here
-
-# Simulate the scene to settle objects
-for _ in range(100):
-    bullet_client.stepSimulation()
-    time.sleep(1 / 100)
-
-first_cube_position = None
-expert = Expert()
-for j, cube_id in enumerate(cube_ids):  # Loop through all cubes
-    position, quat = bullet_client.getBasePositionAndOrientation(cube_id)
-    cube_pose = Affine(position, quat)
-    print("Cube pose:", cube_pose)
-
-    # Skip first cube
-    if first_cube_position is None:
-        first_cube_position = position
-        continue
-
-    for i in range(6):  # Loop through all actions
-        # Get cube position
-        position, quat = bullet_client.getBasePositionAndOrientation(cube_id)
-        cube_pose = Affine(position, quat)
-
-        # Get the state of the environment with the functions: eef pose, cube positions, cube sizes
-        eef_pose = robot.get_eef_pose()
-        print("EEF pose:", eef_pose)
-        cube_positions = env.get_cube_positions()
-        cube_sizes = env.get_cube_sizes()
-
-        sample_input = [
-            # EEF position (3)
-            eef_pose.translation[0], eef_pose.translation[1], eef_pose.translation[2],
-            # EEF orientation (4)
-            eef_pose.quat[0], eef_pose.quat[1], eef_pose.quat[2], eef_pose.quat[3],
-        ] + [
-            # Cube positions, orientations, and sizes for all cubes
-            item
-            for k in range(5)  # Adjust this to match the number of cubes used during training
-            for item in (
-                cube_positions[f'cube_{k}']['position'][0],
-                cube_positions[f'cube_{k}']['position'][1],
-                cube_positions[f'cube_{k}']['position'][2],
-                cube_positions[f'cube_{k}']['orientation'][0],
-                cube_positions[f'cube_{k}']['orientation'][1],
-                cube_positions[f'cube_{k}']['orientation'][2],
-                cube_positions[f'cube_{k}']['orientation'][3],
-            )
-        ] + [
-            0.08, 0.07, 0.06, 0.05, 0.04  # Cube Sizes
-        ] + [
-            i,  # Action label (1 feature)
-            j   # Stacking cube index (1 feature)
-        ]
-
-        # Input of the model
-        print("Sample input:", sample_input)
-        
-        #Get the expert output and compare it to the models output
-        expert_position, expert_orientation, expert_gripper, linptp = expert.expert_policy(sample_input)
-
-        # Predict the output using the model
-        predicted_position, predicted_orientation, predicted_gripper = test_model(model, sample_input)
-        predicted_orientation = np.squeeze(predicted_orientation)  # Removes dimensions of size 1
-        gripper_state = predicted_gripper
-
-        #Compare Expert and Model
-        print(f"Expert: Pos={expert_position}, Ori={expert_orientation}, Gripper={expert_gripper}")
-        print(f"Model: Pos={predicted_position}, Ori={predicted_orientation}, Gripper={predicted_gripper}")
-
-        pred_target_pose = Affine(predicted_position, predicted_orientation)
-        expert_target_pose = Affine(expert_position, expert_orientation)
-
-        # Move to predicted pose
-        if linptp:
-            robot.lin(pred_target_pose)
-        else:
-            robot.ptp(pred_target_pose)
-
-        # Get the EEF pose after moving
-        eef_pose = robot.get_eef_pose()
-        print("EEF pose after ptp:", eef_pose)
-
-        # Set the gripper state based on the prediction
-        if gripper_state == 0:
-            gripper.close()
-        else:
-            gripper.open()
-
-        # Wait for 1 second
-        time.sleep(0)
+    
