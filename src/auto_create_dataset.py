@@ -14,11 +14,12 @@ ACTIONS = {
     "lift_cube": 2,
     "move_to_stack_position": 3,
     "stack_cube": 4,
-    "return_home": 5
+    "above_stack": 5,
+    "return_home": 6
 }
 
 #Folder to save the demonstrations
-demo_folder = "new_demos2"
+demo_folder = "new_dataset"
 
 # Define the BulletEnvironment class to get the current state of the environment and save it
 class BulletEnvironment:
@@ -128,12 +129,14 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
         lift_pose = target_pose * Affine(translation=[0, 0, -0.2])
         robot.lin(lift_pose)
 
-        # Move to stacking position
+        # Get the biggest cube position to stack the cubes
         current_cube_positions = env.get_cube_positions()
         stack_position = list(current_cube_positions['cube_0']['position'])
         #In case the cube falls off the table
         if(stack_position[2] < 0):
-            break   
+            break
+        # Calculate the stacking position for the current cube
+        # Add the size of the previous cubes to the z-coordinate 
         stack_position[2] += 0.05 + cube_sizes[0] / 2
         stack_position[2] += sum(cube_sizes[1:i])
 
@@ -149,8 +152,12 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
         gripper.open()
         env.set_gripper_state(True)  # Update gripper state to open
 
+        #Move above the stack to avoid collisions
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5above_stack.json", ACTIONS["above_stack"],i)
+        robot.lin(above_stack)
+
         # Go to the home position, to avoid collisions
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5home.json", ACTIONS["return_home"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_6home.json", ACTIONS["return_home"],i)
         robot.ptp(home_pose)
 
     # Check if the last cube is at the expected height
@@ -167,7 +174,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
     return abs(last_cube_position[2] - expected_height) <= tolerance
 
 def main():
-    RENDER = False
+    RENDER = True
 # Create a BulletClient and configure the visualizer
     bullet_client = BulletClient(connection_mode=p.GUI)
     bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
