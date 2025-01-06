@@ -155,7 +155,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_o
         env.set_gripper_state(True)  # Update gripper state to open
 
         # Go to the home position, to avoid collisions
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+2352}_cube{i}_5home.json", ACTIONS["return_home"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5home.json", ACTIONS["return_home"],i)
         robot.ptp(home_pose)
 
     # Check if the last cube is at the expected height
