@@ -111,7 +111,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_o
             continue
 
         # Save pre-grasp action
-        env.save_demonstration(demo_folder,f"demo_{len(dataset)}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"],i)
+        env.save_demonstration(demo_folder,f"demo_{len(dataset)+873}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"],i)
         # Pick up the cube (pre-grasp, grasp, lift)
         gripper_rotation = Affine(rotation=[0, np.pi, 0])
         target_pose = cube_pose * gripper_rotation
@@ -123,14 +123,14 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_o
         env.set_gripper_state(True)  # Update gripper state to open
 
         # Move to grasp position
-        env.save_demonstration(demo_folder,f"demo_{len(dataset)}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"],i)
+        env.save_demonstration(demo_folder,f"demo_{len(dataset)+873}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"],i)
         robot.lin(target_pose)
         # Grasp the cube
         gripper.close()
         env.set_gripper_state(False)  # Update gripper state to closed
 
         # Move up to avoid collisions
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_2lift.json", ACTIONS["lift_cube"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+873}_cube{i}_2lift.json", ACTIONS["lift_cube"],i)
         lift_pose = target_pose * Affine(translation=[0, 0, -0.2])
         robot.lin(lift_pose)
 
@@ -146,23 +146,23 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_o
         stack_position[2] += sum(cube_sizes[1:i])
 
         # Approach above stacking position
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_3move_to_stack.json", ACTIONS["move_to_stack_position"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+873}_cube{i}_3move_to_stack.json", ACTIONS["move_to_stack_position"],i)
         stack_target = Affine(translation=stack_position, rotation=[0, np.pi, 0])
         above_stack = stack_target * Affine(translation=[0, 0, -0.2])
         robot.lin(above_stack)
 
         # Descend to stack position
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_4stack.json", ACTIONS["stack_cube"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+873}_cube{i}_4stack.json", ACTIONS["stack_cube"],i)
         robot.lin(stack_target)
         gripper.open()
         env.set_gripper_state(True)  # Update gripper state to open
 
         #Move above the stack to avoid collisions
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5above_stack.json", ACTIONS["above_stack"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+873}_cube{i}_5above_stack.json", ACTIONS["above_stack"],i)
         robot.lin(above_stack)
 
         # Go to the home position, to avoid collisions
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_6home.json", ACTIONS["return_home"],i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)+873}_cube{i}_6home.json", ACTIONS["return_home"],i)
         robot.ptp(home_pose)
 
     # Check if the last cube is at the expected height
@@ -179,7 +179,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_o
     return abs(last_cube_position[2] - expected_height) <= tolerance
 
 def main():
-    RENDER = True
+    RENDER = False
 # Create a BulletClient and configure the visualizer
     bullet_client = BulletClient(connection_mode=p.GUI)
     bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)

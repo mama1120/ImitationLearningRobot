@@ -14,7 +14,7 @@ from joblib import load
 RENDER = True
 
 # Load the trained model
-model = load_model("BC.keras")
+model = load_model("BC2.keras")
 
 # Load the saved scalers
 input_scaler = load("input_scaler.pkl")
@@ -22,7 +22,7 @@ output_scaler_position = load("output_scaler_position.pkl")
 output_scaler_orientation = load("output_scaler_orientation.pkl")
 
 # Function to test the model
-def test_model(model, test_input):
+def test_model(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation):
     """
     Test the trained model with a given input.
 
@@ -56,6 +56,18 @@ def test_model(model, test_input):
         return predicted_position, predicted_orientation, predicted_gripper_state
     except Exception as e:
         raise ValueError(f"Error in test_model: {e}")
+    
+def test_model_bin(model, test_input, input_scaler, output_scaler_position,output_scaler_orientation ):
+
+
+    test_input_scaled = input_scaler.transform(np.array(test_input).reshape(1, -1))
+    predicted_position_orientation, predicted_gripper = model.predict(test_input_scaled)
+    
+    predicted_position = output_scaler_position.inverse_transform(predicted_position_orientation[:, :3])
+    predicted_orientation = output_scaler_orientation.inverse_transform(predicted_position_orientation[:, 3:])
+    predicted_gripper_state = int(round(predicted_gripper[0, 0]))
+
+    return predicted_position, predicted_orientation, predicted_gripper_state
 
 # Define the Bullet environment and its functions to interact with the simulation and get the current state
 class BulletEnvironment:
@@ -216,7 +228,7 @@ for j, cube_id in enumerate(cube_ids):  # Loop through all cubes
         first_cube_position = position
         continue
 
-    for i in range(6):  # Loop through all actions
+    for i in range(7):  # Loop through all actions
         # Get cube position
         position, quat = bullet_client.getBasePositionAndOrientation(cube_id)
         cube_pose = Affine(position, quat)
@@ -259,7 +271,7 @@ for j, cube_id in enumerate(cube_ids):  # Loop through all cubes
         expert_position, expert_orientation, expert_gripper, linptp = expert.expert_policy(sample_input)
 
         # Predict the output using the model
-        predicted_position, predicted_orientation, predicted_gripper = test_model(model, sample_input)
+        predicted_position, predicted_orientation, predicted_gripper = test_model(model, sample_input, input_scaler, output_scaler_position, output_scaler_orientation)
         predicted_orientation = np.squeeze(predicted_orientation)  # Removes dimensions of size 1
         gripper_state = predicted_gripper
 

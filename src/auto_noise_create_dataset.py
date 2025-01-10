@@ -14,11 +14,13 @@ ACTIONS = {
     "lift_cube": 2,
     "move_to_stack_position": 3,
     "stack_cube": 4,
-    "return_home": 5
+    "above_stack": 5,
+    "return_home": 6
+
 }
 
 #Folder to save the demonstrations
-demo_folder = "new_demos2"
+demo_folder = "noise_dataset"
 
 # Define the BulletEnvironment class to get the current state of the environment and save it
 class BulletEnvironment:
@@ -108,7 +110,7 @@ def stack_cubes(
             continue
 
         # Save pre-grasp action
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_0pre_grasp.json", ACTIONS["move_to_pre_grasp"], i)
 
         # Pre-grasp position with noise
         gripper_rotation = Affine(rotation=[0, np.pi, 0])
@@ -124,7 +126,7 @@ def stack_cubes(
         env.set_gripper_state(True)
 
         # Move to grasp position
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_1move_to_grasp.json", ACTIONS["move_to_grasp"], i)
         grasp_pose = target_pose
         current_translation = grasp_pose.translation
         current_translation[0] += generate_action_noise(std_dev=0.003)[0]  # Add noise to pre-grasp position
@@ -135,7 +137,7 @@ def stack_cubes(
         env.set_gripper_state(False)
 
         # Lift the cube with noise
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_2lift.json", ACTIONS["lift_cube"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_2lift.json", ACTIONS["lift_cube"], i)
         lift_pose = target_pose * Affine(translation=[0, 0, -0.2])
         current_translation = lift_pose.translation
         current_translation += generate_action_noise(std_dev=0.01)  # Add noise to pre-grasp position
@@ -152,7 +154,7 @@ def stack_cubes(
         stack_position[2] += 0.05 + cube_sizes[0] / 2
         stack_position[2] += sum(cube_sizes[1:i])  # Adjust for the cubes stacked already
 
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_3move_to_stack.json", ACTIONS["move_to_stack_position"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_3move_to_stack.json", ACTIONS["move_to_stack_position"], i)
         stack_target = Affine(translation=stack_position, rotation=[0, np.pi, 0])
         current_translation = stack_target.translation
         current_translation += generate_action_noise(std_dev=0.007)  # Add noise to pre-grasp position
@@ -161,7 +163,7 @@ def stack_cubes(
         robot.lin(above_stack)
 
         # Descend and stack cube
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_4stack.json", ACTIONS["stack_cube"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_4stack.json", ACTIONS["stack_cube"], i)
         current_translation = stack_target.translation
         current_translation[0] += generate_action_noise(std_dev=0.003)[0]  # Add noise to pre-grasp position
         current_translation[1] += generate_action_noise(std_dev=0.003)[1]  # Add noise to pre-grasp position
@@ -170,8 +172,12 @@ def stack_cubes(
         gripper.open()
         env.set_gripper_state(True)
 
+        #Move above the stack to avoid collisions
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_5above_stack.json", ACTIONS["above_stack"],i)
+        robot.lin(above_stack)
+
         # Return to home
-        env.save_demonstration(demo_folder, f"demo_{len(dataset)+1269}_cube{i}_5home.json", ACTIONS["return_home"], i)
+        env.save_demonstration(demo_folder, f"demo_{len(dataset)}_cube{i}_6home.json", ACTIONS["return_home"], i)
         current_translation = home_pose.translation
         current_translation += generate_action_noise(std_dev=0.01)  # Add noise to pre-grasp position
         home_pose = Affine(translation=current_translation, rotation=home_pose.rotation)
@@ -185,7 +191,7 @@ def stack_cubes(
     return abs(last_cube_position[2] - expected_height) <= tolerance
 
 def main():
-    RENDER = True
+    RENDER = False
 # Create a BulletClient and configure the visualizer
     bullet_client = BulletClient(connection_mode=p.GUI)
     bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)

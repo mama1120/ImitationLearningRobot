@@ -174,7 +174,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
     return abs(last_cube_position[2] - expected_height) <= tolerance
 
 def main():
-    RENDER = True
+    RENDER = False
 # Create a BulletClient and configure the visualizer
     bullet_client = BulletClient(connection_mode=p.GUI)
     bullet_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)

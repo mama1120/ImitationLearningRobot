@@ -10,8 +10,8 @@ from joblib import dump, load
 
 # Define CubeStackDataset
 class CubeStackDataset:
-    def __init__(self, data_dir):
-        self.data_dir = data_dir
+    def __init__(self, data_dirs):
+        self.data_dirs = data_dirs
         self.inputs = []
         self.outputs_position = []  # EEF position
         self.outputs_orientation = []  # EEF orientation
@@ -19,22 +19,23 @@ class CubeStackDataset:
         self.load_data()
 
     def load_data(self):
-        files = [f for f in os.listdir(self.data_dir) if f.endswith('.json')]
-        print(f"Found {len(files)} JSON files in {self.data_dir}")
-        for file in files:
-            filepath = os.path.join(self.data_dir, file)
-            with open(filepath, 'r') as f:
-                try:
-                 data = json.load(f)
-                except json.JSONDecodeError as e:
-                    print(f"Skipping file {file} due to JSON error: {e}")
-                    continue
-                if "action_label" not in data:
-                    continue  # Skip files without an action label
-                self.inputs.append(self.extract_features(data))
-                self.outputs_position.append(data["next_robot_state"]["eef_position"])
-                self.outputs_orientation.append(data["next_robot_state"]["eef_orientation"])
-                self.outputs_gripper.append(int(data["next_gripper_state"]))  # Gripper state (bool -> int)
+        for data_dir in self.data_dirs:
+            files = [f for f in os.listdir(data_dir) if f.endswith('.json')]
+            print(f"Found {len(files)} JSON files in {data_dir}")
+            for file in files:
+                filepath = os.path.join(data_dir, file)
+                with open(filepath, 'r') as f:
+                    try:
+                     data = json.load(f)
+                    except json.JSONDecodeError as e:
+                        print(f"Skipping file {file} due to JSON error: {e}")
+                        continue
+                    if "action_label" not in data:
+                        continue  # Skip files without an action label
+                    self.inputs.append(self.extract_features(data))
+                    self.outputs_position.append(data["next_robot_state"]["eef_position"])
+                    self.outputs_orientation.append(data["next_robot_state"]["eef_orientation"])
+                    self.outputs_gripper.append(int(data["next_gripper_state"]))  # Gripper state (bool -> int)
 
     def extract_features(self, data):
         # Extract robot state, cube positions, cube sizes, and action label as features
@@ -56,8 +57,8 @@ class CubeStackDataset:
                 np.array(self.outputs_gripper))
 
 # Load dataset
-data_dir = "./new_demos"  # Update this path if needed
-dataset = CubeStackDataset(data_dir)
+data_dirs = ["./new_dataset", "./noise_dataset"]
+dataset = CubeStackDataset(data_dirs)
 X, y_position, y_orientation, y_gripper = dataset.get_data()
 
 # Normalize features and labels
@@ -93,10 +94,10 @@ model = Sequential([
 model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mae'])
 
 # Train the model
-model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=125, batch_size=32)
+model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=35, batch_size=32)
 
 # Save the trained model
-model.save("BC.keras")
+model.save("BC_2.keras")
 
 # Evaluate the model on the test set
 loss, mae = model.evaluate(X_test, y_test)

@@ -8,7 +8,7 @@ from transform import Affine
 from tensorflow.keras.models import load_model
 import tensorflow as tf
 from joblib import load
-from DAgger_env import Expert, BulletEnvironment, test_model_bin
+from DAgger_env import Expert, BulletEnvironment, test_model_bin, test_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -17,7 +17,7 @@ from tensorflow.keras.layers import Input
 
 
 # Load the trained model
-training_cycles= 0
+training_cycles= 100
 
 # Load the saved scalers
 input_scaler = load("input_scaler.pkl")
@@ -32,7 +32,7 @@ def calculate_difference(predicted, expert):
     return position_diff, orientation_diff, gripper_diff
 
 
-def train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation, epochs=10):
+def train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation, epochs=2):
     """Train the model online using the aggregated dataset. This is meant to be used with the regression only model"""
     global training_cycles 
     
@@ -62,7 +62,7 @@ def train_online(model, dataset, input_scaler, output_scaler_position, output_sc
 
 
     # Train the model on the new dataset
-    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse', metrics=['mae'])
+    model.compile(optimizer=Adam(learning_rate=0.00025), loss='mse', metrics=['mae'])
     model.fit(inputs, y_combined, epochs=epochs, verbose=1)
     print("Model trained online with new data.")
     print("Model evaluation:", model.evaluate(inputs, y_combined))
@@ -73,7 +73,7 @@ def train_online(model, dataset, input_scaler, output_scaler_position, output_sc
 
     return model
 
-def train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation, epochs=10):
+def train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation, epochs=2):
     """Train the model online using the aggregated dataset.This is meant to be used with the regression and binary model"""
 
     global training_cycles # Keep track of the number of training cycles
@@ -168,7 +168,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
             j = int(second_largest_cube.split('_')[-1])
             cube_id = cube_ids[j]
             expert_usage = 0
-            for i in range(6):  # Loop through all actions
+            for i in range(7):  # Loop through all actions
                 # Get state features
                 position, quat = bullet_client.getBasePositionAndOrientation(cube_id)
                 cube_pose = Affine(position, quat)
@@ -195,7 +195,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
                     )
                 ] + [0.08, 0.07, 0.06, 0.05, 0.04] + [i, j]
 
-                predicted_position, predicted_orientation, predicted_gripper = test_model_bin(model, sample_input, input_scaler, output_scaler_position, output_scaler_orientation)
+                predicted_position, predicted_orientation, predicted_gripper = test_model(model, sample_input, input_scaler, output_scaler_position, output_scaler_orientation)
                 predicted_position = np.squeeze(predicted_position)
                 predicted_orientation = np.squeeze(predicted_orientation)
                 pred_output = np.concatenate([predicted_position, predicted_orientation, [predicted_gripper]])
@@ -210,7 +210,9 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
                     expert_output
                 )
 
-                pos_threshold = 0.05   #0.05
+                pos_threshold = 10    #Choose a very high value to not use the expert policy
+                                        #Choose a very low value to always use the expert policy
+                                        #Default 0.05
                 #ori_threshold = 0.56
                 print("Position diff:", position_diff)
                 print("Orientation diff:", orientation_diff)
@@ -218,7 +220,7 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
                 if position_diff > 15:
                     return False
                 
-                use_expert = position_diff > pos_threshold and position_diff < 3  
+                use_expert = position_diff > pos_threshold and position_diff < 1.5  
                 #To train a specific action
                 #if i == 4:
                 #    use_expert = True
@@ -264,16 +266,16 @@ def stack_cubes(bullet_client, robot, gripper, urdf_path, cube_positions, cube_s
                 expert_usage = 0
                 if training_cycles < 15:
                     if j >= 1:
-                        model = train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
+                        model = train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
                 elif training_cycles >= 15 and training_cycles < 30:
                     if j >= 2:
-                        model = train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
+                        model = train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
                 elif training_cycles >= 30 and training_cycles < 45:
                     if j >= 3:
-                        model = train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
+                        model = train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
                 else:
                     if j >= 4:
-                        model = train_online_bin(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
+                        model = train_online(model, dataset, input_scaler, output_scaler_position, output_scaler_orientation)
 
             
             else:
@@ -323,13 +325,15 @@ def main():
         if os.path.exists("updated_robot_stacking_model.keras"):
             model = load_model("updated_robot_stacking_model.keras")
         else:
-            model = load_model("BC_Grip_Binary_Expanded.keras")
+            model = load_model("BC2.keras")
+            print("First Model loaded")
 
         success = stack_cubes(bullet_client, robot, gripper, CUBE_URDF_PATHS, cube_positions, cube_sizes, cube_colors, env, dataset, model)
         #Wait 5 seconds before starting a new scene, only for debugging
         #time.sleep(5)
         if success:
             print("Stacking successful. After attempts: ", attempts)
+            attempts = 0
             time.sleep(2)
             # Fine-tune model after each cube stacking attempt
         else:
